@@ -1,65 +1,71 @@
-import React, { FC } from 'react';
-import {
-  ApolloClient,
-  ApolloProvider,
-  useQuery,
-  gql,
-  InMemoryCache,
-} from '@apollo/client';
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { actions } from './reducer';
+import { Provider, createClient, useQuery } from 'urql';
 import { useGeolocation } from 'react-use';
 import LinearProgress from '@material-ui/core/LinearProgress';
-import { Typography } from '@material-ui/core';
 import Chip from '../../components/Chip';
+import { IState } from '../../store';
 
-const client = new ApolloClient({
-  uri: 'https://react.eogresources.com/graphql',
-  cache: new InMemoryCache(),
+const client = createClient({
+  url: 'https://react.eogresources.com/graphql',
 });
 
-const toF = (c: number) => (c * 9) / 5 + 32;
-
-const query = gql`
-  query ($latLong: WeatherQuery!) {
-    getWeatherForLocation(latLong: $latLong) {
-      description
-      locationName
-      temperatureinCelsius
-    }
+const query = `
+query($latLong: WeatherQuery!) {
+  getWeatherForLocation(latLong: $latLong) {
+    description
+    locationName
+    temperatureinCelsius
   }
+}
 `;
 
-type WeatherData = {
-  temperatureinCelsius: number;
-  description: string;
-  locationName: string;
-};
-type WeatherDataResponse = {
-  getWeatherForLocation: WeatherData;
+const getWeather = (state: IState) => {
+  const { temperatureinFahrenheit, description, locationName } = state.weather;
+  return {
+    temperatureinFahrenheit,
+    description,
+    locationName,
+  };
 };
 
-const Weather: FC = () => {
+export default () => {
+  return (
+    <Provider value={client}>
+      <Weather />
+    </Provider>
+  );
+};
+
+const Weather = () => {
   const getLocation = useGeolocation();
   // Default to houston
   const latLong = {
     latitude: getLocation.latitude || 29.7604,
     longitude: getLocation.longitude || -95.3698,
   };
-  const { loading, error, data } = useQuery<WeatherDataResponse>(query, {
+  const dispatch = useDispatch();
+  const { temperatureinFahrenheit, description, locationName } = useSelector(getWeather);
+
+  const [result] = useQuery({
+    query,
     variables: {
       latLong,
     },
   });
+  const { fetching, data, error } = result;
+  useEffect(() => {
+    if (error) {
+      dispatch(actions.weatherApiErrorReceived({ error: error.message }));
+      return;
+    }
+    if (!data) return;
+    const { getWeatherForLocation } = data;
+    dispatch(actions.weatherDataRecevied(getWeatherForLocation));
+  }, [dispatch, data, error]);
 
-  if (loading) return <LinearProgress />;
-  if (error) return <Typography color="error">{error}</Typography>;
-  if (!data) return <Chip label="Weather not found" />;
-  const { locationName, description, temperatureinCelsius } = data.getWeatherForLocation;
+  if (fetching) return <LinearProgress />;
 
-  return <Chip label={`Weather in ${locationName}: ${description} and ${Math.round(toF(temperatureinCelsius))}°`} />;
+  return <Chip label={`Weather in ${locationName}: ${description} and ${temperatureinFahrenheit}°`} />;
 };
-
-export default () => (
-  <ApolloProvider client={client}>
-    <Weather />
-  </ApolloProvider>
-);

@@ -1,13 +1,17 @@
 import React from 'react';
+import createStore from './store';
+import { Provider } from 'react-redux';
 import { ToastContainer } from 'react-toastify';
-import { MuiThemeProvider, createTheme } from '@material-ui/core/styles';
+import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import 'react-toastify/dist/ReactToastify.css';
 import Header from './components/Header';
 import Wrapper from './components/Wrapper';
 import NowWhat from './components/NowWhat';
+import Metrics from './Features/Metrics/Dashboard';
 
-const theme = createTheme({
+const store = createStore();
+const theme = createMuiTheme({
   palette: {
     primary: {
       main: 'rgb(39,49,66)',
@@ -24,11 +28,12 @@ const theme = createTheme({
 const App = () => (
   <MuiThemeProvider theme={theme}>
     <CssBaseline />
-    <Wrapper>
-      <Header />
-      <NowWhat />
-      <ToastContainer />
-    </Wrapper>
+    <Provider store={store}>
+      <Wrapper>
+        <Header />
+        <Metrics />
+      </Wrapper>
+    </Provider>
   </MuiThemeProvider>
 );
 
